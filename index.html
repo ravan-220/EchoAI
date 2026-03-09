@@ -5,7 +5,6 @@
 <title>Echo AI</title>
 
 <style>
-
 body{
 margin:0;
 background:black;
@@ -14,21 +13,13 @@ font-family:Arial;
 display:flex;
 align-items:center;
 justify-content:center;
-height:100vh;
 flex-direction:column;
-}
-
-.signup{
-position:absolute;
-top:20px;
-right:20px;
-font-size:28px;
-cursor:pointer;
+height:100vh;
 }
 
 .ai-image{
-width:420px;
-filter:drop-shadow(0 0 40px cyan);
+width:400px;
+filter:drop-shadow(0 0 30px cyan);
 }
 
 #response{
@@ -37,13 +28,11 @@ font-size:22px;
 text-align:center;
 width:70%;
 }
-
 </style>
+
 </head>
 
 <body>
-
-<div class="signup">⚙️</div>
 
 <img src="ai.png" class="ai-image">
 
@@ -51,11 +40,13 @@ width:70%;
 
 <script>
 
-const API_KEY="AIzaSyDG70kKtsFT2BPPDBRlBOxpeHtYu2foGvw";
+const API_KEY="AIzaSyAZkFj8bE3EyhvJaCmiiaEeaUbPrLcGvqg";
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recognition = new SpeechRecognition();
 
 const responseText=document.getElementById("response");
 
-const recognition=new webkitSpeechRecognition();
 recognition.lang="en-US";
 
 window.onload=()=>{
