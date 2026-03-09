@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+[8:16 pm, 9/3/2026] Rahul Chauhan: <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -47,52 +47,395 @@ const recognition = new SpeechRecognition();
 
 const responseText=document.getElementById("response");
 
-recognition.lang="en-US";
+recognition.lang="en-US";…
+[8:26 pm, 9/3/2026] Rahul Chauhan: <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Robot Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #ui-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+        .interactive { pointer-events: auto; }
+        .glow-text { text-shadow: 0 0 20px rgba(0, 200, 255, 0.8); }
+        
+        #chat-display {
+            position: absolute; bottom: 200px; left: 50%; transform: translateX(-50%);
+            max-width: 700px; width: 90%; text-align: center; color: white;
+            font-size: 1.3rem; padding: 25px; background: rgba(0, 0, 0, 0.8);
+            border-radius: 20px; border: 1px solid rgba(0, 200, 255, 0.4);
+            backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.5s;
+        }
+        
+        #start-button {
+            position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%);
+            padding: 20px 60px; font-size: 1.3rem; font-weight: bold; color: white;
+            background: linear-gradient(135deg, #00c8ff, #0077b6); border: none;
+            border-radius: 50px; cursor: pointer; display: none;
+            box-shadow: 0 0 30px rgba(0, 200, 255, 0.5); transition: all 0.3s;
+        }
+        #start-button:hover { transform: translateX(-50%) translateY(-3px); box-shadow: 0 10px 40px rgba(0, 200, 255, 0.7); }
+        #start-button.listening { background: linear-gradient(135deg, #ff4444, #cc0000); animation: pulse 1.5s infinite; }
+        
+        @keyframes pulse { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.05); } }
+        
+        .status-indicator { position: absolute; top: 30px; right: 30px; padding: 12px 25px; background: rgba(0,0,0,0.8); border-radius: 25px; border: 1px solid rgba(0, 200, 255, 0.4); color: #00c8ff; font-size: 1rem; }
+        
+        #signin-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, #0a0a0a 0%, #000000 100%); z-index: 100; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .signin-box { background: rgba(20, 20, 20, 0.95); padding: 50px; border-radius: 30px; border: 1px solid rgba(0, 200, 255, 0.3); text-align: center; max-width: 450px; box-shadow: 0 0 50px rgba(0, 200, 255, 0.2); }
+        .robot-icon { width: 100px; height: 100px; margin: 0 auto 30px; background: linear-gradient(135deg, #00c8ff, #0077b6); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 50px; box-shadow: 0 0 30px rgba(0, 200, 255, 0.5); }
+        #google-signin { margin-top: 30px; display: flex; justify-content: center; }
+        
+        #speech-waves { position: absolute; bottom: 160px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; opacity: 0; transition: opacity 0.3s; }
+        .wave-bar { width: 6px; background: linear-gradient(to top, #00c8ff, #ffffff); border-radius: 3px; animation: wave 0.5s ease-in-out infinite alternate; }
+        .wave-bar:nth-child(1) { height: 20px; animation-delay: 0s; }
+        .wave-bar:nth-child(2) { height: 35px; animation-delay: 0.1s; }
+        .wave-bar:nth-child(3) { height: 25px; animation-delay: 0.2s; }
+        .wave-bar:nth-child(4) { height: 40px; animation-delay: 0.3s; }
+        .wave-bar:nth-child(5) { height: 30px; animation-delay: 0.4s; }
+        @keyframes wave { from { transform: scaleY(0.3); opacity: 0.5; } to { transform: scaleY(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div id="signin-modal" class="interactive">
+        <div class="signin-box">
+            <div class="robot-icon">🤖</div>
+            <h2 class="text-4xl font-bold text-white mb-3 glow-text">AI ROBOT</h2>
+            <p class="text-gray-400 mb-8 text-lg">Your Personal AI Assistant</p>
+            <div id="google-signin"></div>
+            <p class="text-gray-500 mt-6 text-sm">Sign in with Google to continue</p>
+        </div>
+    </div>
 
-window.onload=()=>{
-recognition.start();
-};
+    <div id="canvas-container"></div>
+    <div id="ui-layer">
+        <div class="status-indicator" id="status">Ready</div>
+        <div id="chat-display"></div>
+        <div id="speech-waves">
+            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+            <div class="wave-bar"></div><div class="wave-bar"></div>
+        </div>
+        <button id="start-button" class="interactive" onclick="toggleConversation()">START CONVERSATION</button>
+    </div>
 
-recognition.onresult=function(event){
+    <script>
+        // ⚠️ REPLACE THESE KEYS WITH YOUR OWN
+        const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
+        const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+        
+        let scene, camera, renderer, robot, robotHead, robotEyes = [];
+        let isSpeaking = false, isListening = false, isConversationActive = false;
+        let recognition, userName = 'User';
 
-let speech=event.results[0][0].transcript;
+        window.onload = function() {
+            google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: handleGoogleSignIn
+            });
+            google.accounts.id.renderButton(
+                document.getElementById("google-signin"),
+                { theme: "filled_black", size: "large", width: 300, text: "signin_with", shape: "pill" }
+            );
+        };
 
-responseText.innerText="You said: "+speech;
+        function handleGoogleSignIn(response) {
+            const payload = JSON.parse(atob(response.credential.split('.')[1]));
+            userName = payload.name || payload.email.split('@')[0];
+            document.getElementById('signin-modal').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('signin-modal').style.display = 'none';
+                document.getElementById('start-button').style.display = 'block';
+                initScene();
+            }, 500);
+        }
 
-sendToAI(speech);
+        function initScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+            
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0.5, 3.5);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            
+            // Lights
+            const spotLight = new THREE.SpotLight(0x00c8ff, 2);
+            spotLight.position.set(2, 5, 5);
+            spotLight.castShadow = true;
+            scene.add(spotLight);
+            
+            const rimLight = new THREE.DirectionalLight(0x0080ff, 1);
+            rimLight.position.set(-3, 2, -3);
+            scene.add(rimLight);
+            
+            createRobot();
+            createParticles();
+            animate();
+            window.addEventListener('resize', onWindowResize);
+        }
 
-};
+        function createRobot() {
+            robot = new THREE.Group();
+            
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.9, roughness: 0.2 });
+            const glowMat = new THREE.MeshBasicMaterial({ color: 0x00c8ff, emissive: 0x00c8ff, emissiveIntensity: 0.8 });
+            const jointMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8, roughness: 0.3 });
+            
+            // Head
+            const headGroup = new THREE.Group();
+            headGroup.position.y = 1.4;
+            
+            robotHead = new THREE.Mesh(new THREE.SphereGeometry(0.25, 64, 64), bodyMat);
+            robotHead.castShadow = true;
+            headGroup.add(robotHead);
+            
+            // Eyes
+            const eyeGeo = new THREE.SphereGeometry(0.04, 32, 32);
+            const leftEye = new THREE.Mesh(eyeGeo, glowMat.clone());
+            leftEye.position.set(-0.08, 0.05, 0.2);
+            headGroup.add(leftEye);
+            robotEyes.push(leftEye);
+            
+            const rightEye = new THREE.Mesh(eyeGeo, glowMat.clone());
+            rightEye.position.set(0.08, 0.05, 0.2);
+            headGroup.add(rightEye);
+            robotEyes.push(rightEye);
+            
+            // Glow behind eyes
+            const glowGeo = new THREE.SphereGeometry(0.07, 32, 32);
+            const leftGlow = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({ color: 0x00c8ff, transparent: true, opacity: 0.3 }));
+            leftGlow.position.copy(leftEye.position);
+            headGroup.add(leftGlow);
+            
+            const rightGlow = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({ color: 0x00c8ff, transparent: true, opacity: 0.3 }));
+            rightGlow.position.copy(rightEye.position);
+            headGroup.add(rightGlow);
+            
+            // Neck
+            const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.15, 32), jointMat);
+            neck.position.y = -0.3;
+            headGroup.add(neck);
+            
+            robot.add(headGroup);
+            robotHead = headGroup;
+            
+            // Torso with "e" logo
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.25, 0.6, 64), bodyMat);
+            torso.position.y = 0.8;
+            torso.castShadow = true;
+            robot.add(torso);
+            
+            // Logo "e"
+            const logoGroup = new THREE.Group();
+            logoGroup.position.set(0, 0.9, 0.28);
+            const logoCircle = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.012, 16, 64, Math.PI * 1.7), glowMat);
+            logoCircle.rotation.z = Math.PI * 0.85;
+            logoGroup.add(logoCircle);
+            const logoLine = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.06, 0.005), glowMat);
+            logoLine.position.set(0.03, -0.015, 0);
+            logoLine.rotation.z = -Math.PI / 8;
+            logoGroup.add(logoLine);
+            robot.add(logoGroup);
+            
+            // Shoulders & Arms
+            const shoulderGeo = new THREE.SphereGeometry(0.15, 32, 32);
+            const armGeo = new THREE.CylinderGeometry(0.08, 0.06, 0.6, 32);
+            
+            [-1, 1].forEach(side => {
+                const shoulder = new THREE.Mesh(shoulderGeo, jointMat);
+                shoulder.position.set(side * 0.4, 1.1, 0);
+                robot.add(shoulder);
+                
+                const arm = new THREE.Mesh(armGeo, bodyMat);
+                arm.position.set(side * 0.45, 0.7, 0);
+                arm.rotation.z = side * -0.1;
+                robot.add(arm);
+                
+                const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.09, 32, 32), jointMat);
+                elbow.position.set(side * 0.48, 0.4, 0);
+                robot.add(elbow);
+                
+                const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.5, 32), bodyMat);
+                forearm.position.set(side * 0.5, 0.1, 0.05);
+                forearm.rotation.x = -0.2;
+                robot.add(forearm);
+            });
+            
+            // Hips & Legs
+            const hips = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.2, 0.3, 64), bodyMat);
+            hips.position.y = 0.35;
+            robot.add(hips);
+            
+            const legGeo = new THREE.CylinderGeometry(0.11, 0.09, 0.7, 32);
+            [-1, 1].forEach(side => {
+                const leg = new THREE.Mesh(legGeo, bodyMat);
+                leg.position.set(side * 0.14, -0.15, 0);
+                robot.add(leg);
+                
+                const knee = new THREE.Mesh(new THREE.SphereGeometry(0.12, 32, 32), jointMat);
+                knee.position.set(side * 0.14, -0.5, 0);
+                robot.add(knee);
+                
+                const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.07, 0.6, 32), bodyMat);
+                shin.position.set(side * 0.14, -0.85, 0);
+                robot.add(shin);
+                
+                const foot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.1, 0.25), jointMat);
+                foot.position.set(side * 0.14, -1.2, 0.05);
+                robot.add(foot);
+            });
+            
+            scene.add(robot);
+        }
 
-async function sendToAI(message){
+        function createParticles() {
+            const geo = new THREE.BufferGeometry();
+            const count = 200;
+            const positions = new Float32Array(count * 3);
+            for(let i = 0; i < count * 3; i++) positions[i] = (Math.random() - 0.5) * 12;
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const mat = new THREE.PointsMaterial({ color: 0x00c8ff, size: 0.025, transparent: true, opacity: 0.6 });
+            const particles = new THREE.Points(geo, mat);
+            scene.add(particles);
+            
+            function animateParticles() {
+                particles.rotation.y += 0.001;
+                requestAnimationFrame(animateParticles);
+            }
+            animateParticles();
+        }
 
-const url=https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY};
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = Date.now() * 0.001;
+            
+            if(robot) {
+                robot.position.y = Math.sin(time * 0.8) * 0.01;
+                if(!isSpeaking) robot.rotation.y = Math.sin(time * 0.3) * 0.03;
+                
+                if(isSpeaking) {
+                    robotHead.rotation.y = Math.sin(time * 2.5) * 0.06;
+                    robotHead.rotation.x = Math.sin(time * 1.5) * 0.03;
+                    robotHead.position.y = 1.4 + Math.sin(time * 10) * 0.005;
+                    robotEyes.forEach((eye, i) => eye.material.emissiveIntensity = 0.8 + Math.sin(time * 8 + i) * 0.3);
+                } else {
+                    robotHead.rotation.y *= 0.95;
+                    robotHead.rotation.x *= 0.95;
+                    robotHead.position.y = THREE.MathUtils.lerp(robotHead.position.y, 1.4, 0.05);
+                    robotEyes.forEach(eye => eye.material.emissiveIntensity = THREE.MathUtils.lerp(eye.material.emissiveIntensity, 0.8, 0.05));
+                }
+            }
+            renderer.render(scene, camera);
+        }
 
-const res=await fetch(url,{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-contents:[{parts:[{text:message}]}]
-})
-});
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
 
-const data=await res.json();
+        function initSpeechRecognition() {
+            if(!('webkitSpeechRecognition' in window)) return alert('Use Chrome browser');
+            
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+            
+            recognition.onstart = () => {
+                isListening = true;
+                document.getElementById('start-button').classList.add('listening');
+                document.getElementById('start-button').textContent = 'STOP CONVERSATION';
+                document.getElementById('status').textContent = 'Listening...';
+                document.getElementById('speech-waves').style.opacity = '1';
+            };
+            
+            recognition.onresult = (event) => {
+                for(let i = event.resultIndex; i < event.results.length; i++) {
+                    if(event.results[i].isFinal) {
+                        processUserInput(event.results[i][0].transcript.trim());
+                    }
+                }
+            };
+            
+            recognition.onend = () => { if(isConversationActive) recognition.start(); };
+        }
 
-let reply=data.candidates[0].content.parts[0].text;
+        function toggleConversation() {
+            if(!recognition) initSpeechRecognition();
+            
+            if(isConversationActive) {
+                isConversationActive = false;
+                recognition.stop();
+                document.getElementById('start-button').classList.remove('listening');
+                document.getElementById('start-button').textContent = 'START CONVERSATION';
+                document.getElementById('status').textContent = 'Ready';
+                document.getElementById('speech-waves').style.opacity = '0';
+                window.speechSynthesis.cancel();
+            } else {
+                isConversationActive = true;
+                recognition.start();
+                if(!window.hasStarted) {
+                    window.hasStarted = true;
+                    setTimeout(() => speakResponse(Hello ${userName}! I'm your AI assistant. How can I help you?), 1000);
+                }
+            }
+        }
 
-responseText.innerText=reply;
+        async function processUserInput(text) {
+            showMessage(You: ${text});
+            document.getElementById('status').textContent = 'Thinking...';
+            document.getElementById('speech-waves').style.opacity = '0';
+            
+            try {
+                const res = await fetch(https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text }] }], generationConfig: { maxOutputTokens: 150 } })
+                });
+                const data = await res.json();
+                const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "I didn't understand that.";
+                speakResponse(reply);
+            } catch(err) {
+                speakResponse("Connection error. Please try again.");
+            }
+        }
 
-const speech=new SpeechSynthesisUtterance(reply);
-window.speechSynthesis.speak(speech);
+        function speakResponse(text) {
+            showMessage(AI: ${text});
+            document.getElementById('status').textContent = 'Speaking...';
+            
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.rate = 0.9; utter.pitch = 1;
+            const voices = window.speechSynthesis.getVoices();
+            const voice = voices.find(v => v.name.includes('Google') || v.name.includes('Samantha'));
+            if(voice) utter.voice = voice;
+            
+            utter.onstart = () => isSpeaking = true;
+            utter.onend = () => {
+                isSpeaking = false;
+                document.getElementById('status').textContent = 'Listening...';
+                document.getElementById('speech-waves').style.opacity = '1';
+            };
+            window.speechSynthesis.speak(utter);
+        }
 
-setTimeout(()=>{
-recognition.start();
-},2000);
-
-}
-
-</script>
-
+        function showMessage(text) {
+            const el = document.getElementById('chat-display');
+            el.textContent = text;
+            el.style.opacity = '1';
+            setTimeout(() => el.style.opacity = '0', 6000);
+        }
+    </script>
 </body>
 </html>
