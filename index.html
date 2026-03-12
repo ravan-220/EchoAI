@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance System - Savitri Success Library</title>
+    <title>Savitri Success Library - Attendance</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -37,6 +37,13 @@
             border: 3px solid #10b981;
             border-radius: 50%;
             animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
@@ -81,7 +88,9 @@
                         <p class="text-xs opacity-80" id="currentDate"></p>
                     </div>
                 </div>
-                <button onclick="logout()" class="bg-white/20 px-4 py-2 rounded-lg hover:bg-white/30 transition text-sm">Logout</button>
+                <button onclick="logout()" class="bg-white/20 px-4 py-2 rounded-lg hover:bg-white/30 transition text-sm font-semibold">
+                    Logout
+                </button>
             </div>
         </nav>
 
@@ -111,6 +120,9 @@
                 <button onclick="showSection('addStudent')" class="bg-purple-600 text-white px-6 py-3 rounded-xl hover:bg-purple-700 transition flex items-center gap-2 shadow-lg">
                     <span>➕</span> Add Student
                 </button>
+                <button onclick="showSection('studentList')" class="bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition flex items-center gap-2 shadow-lg">
+                    <span>👥</span> View Students
+                </button>
                 <button onclick="generateClassQR()" class="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition flex items-center gap-2 shadow-lg">
                     <span>📱</span> Class QR Code
                 </button>
@@ -123,16 +135,50 @@
             </div>
 
             <!-- Add Student Form -->
-            <div id="addStudentSection" class="hidden bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <div id="addStudentSection" class="hidden bg-white rounded-2xl shadow-lg p-6 border border-gray-100 fade-in">
                 <h3 class="text-xl font-bold mb-4 text-gray-800">Add New Student</h3>
                 <div class="grid md:grid-cols-3 gap-4">
                     <input type="text" id="studentName" placeholder="Student Name" class="border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500">
                     <input type="text" id="studentRoll" placeholder="Roll Number" class="border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500">
                     <input type="text" id="studentClass" placeholder="Class/Subject" class="border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500">
                 </div>
-                <button onclick="addStudent()" class="mt-4 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition w-full md:w-auto">
-                    Save Student
-                </button>
+                <div class="flex gap-3 mt-4">
+                    <button onclick="addStudent()" class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition">
+                        Save Student
+                    </button>
+                    <button onclick="hideSection('addStudent')" class="bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Student List Section -->
+            <div id="studentListSection" class="hidden bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 fade-in">
+                <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-gray-800">All Students</h3>
+                    <button onclick="hideSection('studentList')" class="text-gray-500 hover:text-gray-700">
+                        ✕ Close
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">Name</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">Roll Number</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">Class</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTable" class="divide-y divide-gray-100">
+                            <!-- Dynamic content -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="noStudents" class="hidden p-8 text-center text-gray-500">
+                    <div class="text-4xl mb-2">👥</div>
+                    <p>No students added yet</p>
+                </div>
             </div>
 
             <!-- QR Modal -->
@@ -148,8 +194,8 @@
             <!-- Attendance Table -->
             <div class="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
                 <div class="p-4 border-b border-gray-100 flex justify-between items-center">
-                    <h3 class="text-lg font-bold text-gray-800">Today's Attendance</h3>
-                    <input type="date" id="dateFilter" onchange="filterByDate()" class="border border-gray-300 rounded-lg px-3 py-1 text-sm">
+                    <h3 class="text-lg font-bold text-gray-800">Attendance Records</h3>
+                    <input type="date" id="dateFilter" onchange="renderAttendanceTable()" class="border border-gray-300 rounded-lg px-3 py-1 text-sm">
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full">
@@ -184,7 +230,9 @@
                     <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-xl">🎓</div>
                     <h2 class="font-bold">Student Panel</h2>
                 </div>
-                <button onclick="logout()" class="bg-white/20 px-4 py-2 rounded-lg hover:bg-white/30 transition text-sm">Logout</button>
+                <button onclick="logout()" class="bg-white/20 px-4 py-2 rounded-lg hover:bg-white/30 transition text-sm font-semibold">
+                    Logout
+                </button>
             </div>
         </nav>
 
@@ -208,29 +256,7 @@
 
             <!-- Scanner Section -->
             <div id="scannerSection" class="hidden space-y-4">
-                <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-                    <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
-                        <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                        Scan QR Code
-                    </h3>
-                    <div id="reader" class="rounded-xl overflow-hidden"></div>
-                    <div class="mt-4 p-4 bg-gray-50 rounded-lg text-center">
-                        <p class="text-sm text-gray-600">Point camera at teacher's QR code</p>
-                    </div>
-                </div>
-
-                <!-- Manual Entry -->
-                <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-                    <h3 class="text-lg font-bold mb-4">Or Enter Code</h3>
-                    <div class="flex gap-2">
-                        <input type="text" id="manualCode" placeholder="Enter attendance code" class="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500">
-                        <button onclick="manualCheckIn()" class="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 transition">
-                            GO
-                        </button>
-                    </div>
-                </div>
-
-                <!-- My Attendance -->
+                <!-- Status Card -->
                 <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
                     <h3 class="text-lg font-bold mb-4">My Today's Status</h3>
                     <div id="myStatus" class="space-y-3">
@@ -247,6 +273,25 @@
                             <span class="font-mono" id="myCheckOut">--:--</span>
                         </div>
                     </div>
+                    
+                    <!-- Log In / Log Out Button -->
+                    <div class="mt-6">
+                        <button id="actionBtn" onclick="handleAttendanceAction()" class="w-full py-4 rounded-xl font-bold text-lg transition transform hover:scale-105 shadow-lg flex items-center justify-center gap-2">
+                            Log In
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Scanner (Optional) -->
+                <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+                    <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        <span>📷</span>
+                        Scan QR Code (Optional)
+                    </h3>
+                    <div id="reader" class="rounded-xl overflow-hidden"></div>
+                    <button onclick="toggleScanner()" id="scannerBtn" class="mt-4 w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition">
+                        Start Camera
+                    </button>
                 </div>
             </div>
         </div>
@@ -259,24 +304,93 @@
     </div>
 
     <script>
+        // Cloud Sync Configuration
+        const STORAGE_KEY = 'savitri_library_data_v1';
+        let syncInterval = null;
+        
         // Data Storage
-        let students = JSON.parse(localStorage.getItem('students')) || [];
-        let attendance = JSON.parse(localStorage.getItem('attendance')) || [];
+        let appData = {
+            students: [],
+            attendance: [],
+            lastSync: Date.now()
+        };
+        
         let currentUser = null;
         let html5QrCode = null;
+        let isScannerRunning = false;
 
         // Initialize
         window.onload = function() {
+            loadData();
             document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', { 
                 weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
             });
             document.getElementById('dateFilter').valueAsDate = new Date();
+            
+            // Start auto-sync every 3 seconds
+            startAutoSync();
+            
+            // Check if already logged in
+            const savedUser = localStorage.getItem('savitri_currentUser');
+            if (savedUser) {
+                const user = JSON.parse(savedUser);
+                login(user.role, false);
+            }
         };
 
+        // Cloud Sync Functions
+        function loadData() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                appData = JSON.parse(saved);
+            }
+        }
+
+        function saveData() {
+            appData.lastSync = Date.now();
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+            // Trigger storage event for other tabs
+            localStorage.setItem('savitri_sync_trigger', Date.now().toString());
+        }
+
+        function startAutoSync() {
+            // Listen for changes from other tabs
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'savitri_sync_trigger') {
+                    loadData();
+                    if (currentUser) {
+                        refreshUI();
+                    }
+                }
+            });
+            
+            // Periodic sync
+            syncInterval = setInterval(() => {
+                if (currentUser) {
+                    loadData();
+                    refreshUI();
+                }
+            }, 3000);
+        }
+
+        function refreshUI() {
+            if (currentUser.role === 'teacher') {
+                updateTeacherStats();
+                renderAttendanceTable();
+                if (!document.getElementById('studentListSection').classList.contains('hidden')) {
+                    renderStudentList();
+                }
+            } else {
+                updateMyStatus();
+            }
+        }
+
         // Login System
-        function login(role) {
+        function login(role, save = true) {
             currentUser = { role: role, id: Date.now() };
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            if (save) {
+                localStorage.setItem('savitri_currentUser', JSON.stringify(currentUser));
+            }
             
             document.getElementById('loginScreen').classList.add('hidden');
             
@@ -291,27 +405,59 @@
         }
 
         function logout() {
-            if (html5QrCode) {
-                html5QrCode.stop();
+            // Stop scanner if running
+            if (html5QrCode && isScannerRunning) {
+                html5QrCode.stop().then(() => {
+                    isScannerRunning = false;
+                }).catch(() => {});
             }
-            localStorage.removeItem('currentUser');
-            location.reload();
+            
+            currentUser = null;
+            localStorage.removeItem('savitri_currentUser');
+            
+            // Hide dashboards
+            document.getElementById('teacherDashboard').classList.add('hidden');
+            document.getElementById('studentDashboard').classList.add('hidden');
+            
+            // Show login screen
+            document.getElementById('loginScreen').classList.remove('hidden');
+            
+            showToast('👋 Logged out successfully');
         }
 
         // Teacher Functions
         function showSection(section) {
             if (section === 'addStudent') {
-                document.getElementById('addStudentSection').classList.toggle('hidden');
+                document.getElementById('addStudentSection').classList.remove('hidden');
+                document.getElementById('studentListSection').classList.add('hidden');
+            } else if (section === 'studentList') {
+                document.getElementById('studentListSection').classList.remove('hidden');
+                document.getElementById('addStudentSection').classList.add('hidden');
+                renderStudentList();
+            }
+        }
+
+        function hideSection(section) {
+            if (section === 'addStudent') {
+                document.getElementById('addStudentSection').classList.add('hidden');
+            } else if (section === 'studentList') {
+                document.getElementById('studentListSection').classList.add('hidden');
             }
         }
 
         function addStudent() {
-            const name = document.getElementById('studentName').value;
-            const roll = document.getElementById('studentRoll').value;
-            const cls = document.getElementById('studentClass').value;
+            const name = document.getElementById('studentName').value.trim();
+            const roll = document.getElementById('studentRoll').value.trim();
+            const cls = document.getElementById('studentClass').value.trim();
 
             if (!name || !roll) {
                 showToast('❌ Please fill required fields', 'error');
+                return;
+            }
+
+            // Check if roll number already exists
+            if (appData.students.find(s => s.roll === roll)) {
+                showToast('❌ Roll number already exists', 'error');
                 return;
             }
 
@@ -320,18 +466,57 @@
                 name,
                 roll,
                 class: cls,
-                qrCode: `STU-${roll}-${Date.now()}`
+                createdAt: new Date().toISOString()
             };
 
-            students.push(student);
-            localStorage.setItem('students', JSON.stringify(students));
+            appData.students.push(student);
+            saveData();
             
             showToast('✅ Student added successfully!');
             document.getElementById('studentName').value = '';
             document.getElementById('studentRoll').value = '';
             document.getElementById('studentClass').value = '';
-            document.getElementById('addStudentSection').classList.add('hidden');
+            hideSection('addStudent');
             updateTeacherStats();
+            renderAttendanceTable();
+        }
+
+        function renderStudentList() {
+            const tbody = document.getElementById('studentTable');
+            tbody.innerHTML = '';
+            
+            if (appData.students.length === 0) {
+                document.getElementById('noStudents').classList.remove('hidden');
+                return;
+            }
+            
+            document.getElementById('noStudents').classList.add('hidden');
+            
+            appData.students.forEach(student => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition';
+                row.innerHTML = `
+                    <td class="px-4 py-3 font-semibold text-gray-800">${student.name}</td>
+                    <td class="px-4 py-3 text-gray-600">${student.roll}</td>
+                    <td class="px-4 py-3 text-gray-600">${student.class || '-'}</td>
+                    <td class="px-4 py-3">
+                        <button onclick="deleteStudent(${student.id})" class="text-red-600 hover:text-red-800 text-sm font-semibold">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function deleteStudent(id) {
+            if (confirm('Delete this student? All their attendance records will also be deleted.')) {
+                appData.students = appData.students.filter(s => s.id !== id);
+                appData.attendance = appData.attendance.filter(a => a.studentId !== id);
+                saveData();
+                renderStudentList();
+                updateTeacherStats();
+                renderAttendanceTable();
+                showToast('🗑️ Student deleted');
+            }
         }
 
         function generateClassQR() {
@@ -342,7 +527,7 @@
                 type: 'class_attendance',
                 classId: 'CLASS-' + new Date().toISOString().split('T')[0],
                 date: new Date().toISOString(),
-                teacher: 'Teacher'
+                timestamp: Date.now()
             };
             
             new QRCode(document.getElementById('classQR'), {
@@ -360,11 +545,11 @@
 
         function updateTeacherStats() {
             const today = new Date().toDateString();
-            const todayRecords = attendance.filter(a => new Date(a.date).toDateString() === today);
+            const todayRecords = appData.attendance.filter(a => new Date(a.date).toDateString() === today);
             
-            document.getElementById('totalStudents').textContent = students.length;
-            document.getElementById('presentToday').textContent = todayRecords.filter(r => r.status === 'Present').length;
-            document.getElementById('absentToday').textContent = students.length - todayRecords.length;
+            document.getElementById('totalStudents').textContent = appData.students.length;
+            document.getElementById('presentToday').textContent = todayRecords.filter(r => r.status === 'Present' || r.status === 'Checked In' || r.status === 'Checked Out').length;
+            document.getElementById('absentToday').textContent = appData.students.length - todayRecords.length;
             
             // Calculate average time
             const totalMinutes = todayRecords.reduce((acc, r) => {
@@ -386,9 +571,9 @@
             
             tbody.innerHTML = '';
             
-            const filteredRecords = attendance.filter(a => 
+            const filteredRecords = appData.attendance.filter(a => 
                 new Date(a.date).toDateString() === filterDate
-            );
+            ).sort((a, b) => new Date(b.date) - new Date(a.date));
 
             if (filteredRecords.length === 0) {
                 document.getElementById('emptyState').classList.remove('hidden');
@@ -396,7 +581,7 @@
                 document.getElementById('emptyState').classList.add('hidden');
                 
                 filteredRecords.forEach(record => {
-                    const student = students.find(s => s.id === record.studentId) || { name: 'Unknown', roll: '-' };
+                    const student = appData.students.find(s => s.id === record.studentId) || { name: 'Unknown', roll: '-' };
                     const row = document.createElement('tr');
                     row.className = 'hover:bg-gray-50 transition';
                     
@@ -404,13 +589,17 @@
                         Math.round((new Date(record.checkOut) - new Date(record.checkIn)) / (1000 * 60)) + ' min' : 
                         (record.checkIn ? 'In Progress' : '--');
                     
+                    let statusClass = 'bg-gray-100 text-gray-700';
+                    if (record.status === 'Checked Out') statusClass = 'bg-blue-100 text-blue-700';
+                    else if (record.status === 'Checked In') statusClass = 'bg-green-100 text-green-700';
+                    
                     row.innerHTML = `
                         <td class="px-4 py-3">
                             <div class="font-semibold text-gray-800">${student.name}</div>
                             <div class="text-sm text-gray-500">Roll: ${student.roll}</div>
                         </td>
                         <td class="px-4 py-3">
-                            <span class="px-3 py-1 rounded-full text-xs font-bold ${record.status === 'Present' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
+                            <span class="px-3 py-1 rounded-full text-xs font-bold ${statusClass}">
                                 ${record.status}
                             </span>
                         </td>
@@ -426,14 +615,10 @@
             }
         }
 
-        function filterByDate() {
-            renderAttendanceTable();
-        }
-
         function deleteRecord(id) {
             if (confirm('Delete this record?')) {
-                attendance = attendance.filter(a => a.id !== id);
-                localStorage.setItem('attendance', JSON.stringify(attendance));
+                appData.attendance = appData.attendance.filter(a => a.id !== id);
+                saveData();
                 renderAttendanceTable();
                 updateTeacherStats();
                 showToast('🗑️ Record deleted');
@@ -443,8 +628,8 @@
         function exportData() {
             let csv = 'Date,Student Name,Roll Number,Status,Check In,Check Out,Duration (minutes)\n';
             
-            attendance.forEach(record => {
-                const student = students.find(s => s.id === record.studentId) || {};
+            appData.attendance.forEach(record => {
+                const student = appData.students.find(s => s.id === record.studentId) || {};
                 const duration = record.checkIn && record.checkOut ? 
                     Math.round((new Date(record.checkOut) - new Date(record.checkIn)) / (1000 * 60)) : '';
                 
@@ -462,10 +647,8 @@
 
         function clearAllData() {
             if (confirm('⚠️ WARNING: This will delete ALL students and attendance records. Are you sure?')) {
-                localStorage.removeItem('students');
-                localStorage.removeItem('attendance');
-                students = [];
-                attendance = [];
+                appData = { students: [], attendance: [], lastSync: Date.now() };
+                saveData();
                 updateTeacherStats();
                 renderAttendanceTable();
                 showToast('🗑️ All data cleared');
@@ -474,21 +657,20 @@
 
         // Student Functions
         function checkStudentRegistration() {
-            const savedStudent = localStorage.getItem('myStudentProfile');
+            const savedStudent = localStorage.getItem('savitri_student_profile');
             if (savedStudent) {
                 const profile = JSON.parse(savedStudent);
                 document.getElementById('studentDisplayName').textContent = profile.name;
                 document.getElementById('studentDisplayRoll').textContent = 'Roll: ' + profile.roll;
                 document.getElementById('studentRegisterForm').classList.add('hidden');
                 document.getElementById('scannerSection').classList.remove('hidden');
-                initScanner();
                 updateMyStatus();
             }
         }
 
         function registerStudent() {
-            const name = document.getElementById('regName').value;
-            const roll = document.getElementById('regRoll').value;
+            const name = document.getElementById('regName').value.trim();
+            const roll = document.getElementById('regRoll').value.trim();
             
             if (!name || !roll) {
                 showToast('❌ Please enter name and roll number', 'error');
@@ -496,35 +678,52 @@
             }
             
             const profile = { name, roll, id: Date.now() };
-            localStorage.setItem('myStudentProfile', JSON.stringify(profile));
+            localStorage.setItem('savitri_student_profile', JSON.stringify(profile));
             checkStudentRegistration();
             showToast('✅ Registration successful!');
         }
 
-        function initScanner() {
-            if (html5QrCode) return;
+        function toggleScanner() {
+            const btn = document.getElementById('scannerBtn');
             
-            html5QrCode = new Html5Qrcode("reader");
-            html5QrCode.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                onScanSuccess,
-                onScanError
-            ).catch(err => {
-                console.error("Scanner error:", err);
-                showToast('⚠️ Camera access denied. Use manual code entry.', 'error');
-            });
+            if (!isScannerRunning) {
+                // Start scanner
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("reader");
+                }
+                
+                html5QrCode.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    onScanSuccess,
+                    onScanError
+                ).then(() => {
+                    isScannerRunning = true;
+                    btn.textContent = 'Stop Camera';
+                    btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    btn.classList.add('bg-red-600', 'hover:bg-red-700');
+                }).catch(err => {
+                    showToast('⚠️ Camera access denied', 'error');
+                });
+            } else {
+                // Stop scanner
+                html5QrCode.stop().then(() => {
+                    isScannerRunning = false;
+                    btn.textContent = 'Start Camera';
+                    btn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                    btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                }).catch(() => {});
+            }
         }
 
         function onScanSuccess(decodedText) {
             try {
                 const data = JSON.parse(decodedText);
                 if (data.type === 'class_attendance') {
-                    markAttendance('check-in');
+                    handleAttendanceAction();
                 }
             } catch (e) {
-                // If not JSON, treat as code
-                markAttendance('check-in');
+                handleAttendanceAction();
             }
         }
 
@@ -532,20 +731,12 @@
             // console.warn(error);
         }
 
-        function manualCheckIn() {
-            const code = document.getElementById('manualCode').value;
-            if (code) {
-                markAttendance('check-in');
-                document.getElementById('manualCode').value = '';
-            }
-        }
-
-        function markAttendance(type) {
-            const profile = JSON.parse(localStorage.getItem('myStudentProfile'));
+        function handleAttendanceAction() {
+            const profile = JSON.parse(localStorage.getItem('savitri_student_profile'));
             const today = new Date().toDateString();
             
-            // Check if already checked in today
-            let record = attendance.find(a => 
+            // Find today's record
+            let record = appData.attendance.find(a => 
                 a.studentId === profile.id && 
                 new Date(a.date).toDateString() === today
             );
@@ -553,53 +744,81 @@
             const now = new Date().toISOString();
             
             if (!record) {
-                // New check-in
+                // Log In
                 record = {
                     id: Date.now(),
                     studentId: profile.id,
+                    studentName: profile.name,
+                    studentRoll: profile.roll,
                     date: now,
-                    status: 'Present',
+                    status: 'Checked In',
                     checkIn: now,
                     checkOut: null
                 };
-                attendance.push(record);
-                showToast('✅ Check-in successful!');
+                appData.attendance.push(record);
+                saveData();
+                showToast('✅ Logged In successfully!');
             } else if (!record.checkOut) {
-                // Check-out
+                // Log Out
                 record.checkOut = now;
-                showToast('✅ Check-out successful!');
+                record.status = 'Checked Out';
+                saveData();
+                showToast('✅ Logged Out successfully!');
             } else {
-                showToast('⚠️ Already checked out today!', 'error');
+                showToast('⚠️ Already completed today!', 'error');
                 return;
             }
             
-            localStorage.setItem('attendance', JSON.stringify(attendance));
             updateMyStatus();
         }
 
         function updateMyStatus() {
-            const profile = JSON.parse(localStorage.getItem('myStudentProfile'));
+            const profile = JSON.parse(localStorage.getItem('savitri_student_profile'));
             const today = new Date().toDateString();
             
-            const record = attendance.find(a => 
+            const record = appData.attendance.find(a => 
                 a.studentId === profile.id && 
                 new Date(a.date).toDateString() === today
             );
             
+            const btn = document.getElementById('actionBtn');
+            
             if (record) {
                 const badge = document.getElementById('myStatusBadge');
+                
                 if (record.checkOut) {
+                    // Completed - show Log Out button disabled or hide
                     badge.textContent = 'Completed';
                     badge.className = 'px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-700';
+                    
+                    btn.textContent = '✓ Completed';
+                    btn.className = 'w-full py-4 rounded-xl font-bold text-lg bg-gray-400 text-white cursor-not-allowed';
+                    btn.disabled = true;
                 } else {
-                    badge.textContent = 'Present';
+                    // Checked In - show Log Out button
+                    badge.textContent = 'Checked In';
                     badge.className = 'px-3 py-1 rounded-full text-sm font-bold bg-green-100 text-green-700';
+                    
+                    btn.textContent = '🔴 Log Out';
+                    btn.className = 'w-full py-4 rounded-xl font-bold text-lg bg-red-600 text-white hover:bg-red-700 transition transform hover:scale-105 shadow-lg flex items-center justify-center gap-2';
+                    btn.disabled = false;
                 }
                 
                 document.getElementById('myCheckIn').textContent = record.checkIn ? 
                     new Date(record.checkIn).toLocaleTimeString() : '--:--';
                 document.getElementById('myCheckOut').textContent = record.checkOut ? 
                     new Date(record.checkOut).toLocaleTimeString() : '--:--';
+            } else {
+                // Not marked - show Log In button
+                document.getElementById('myStatusBadge').textContent = 'Not Marked';
+                document.getElementById('myStatusBadge').className = 'px-3 py-1 rounded-full text-sm font-bold bg-gray-200 text-gray-600';
+                
+                btn.textContent = '🟢 Log In';
+                btn.className = 'w-full py-4 rounded-xl font-bold text-lg bg-green-600 text-white hover:bg-green-700 transition transform hover:scale-105 shadow-lg flex items-center justify-center gap-2';
+                btn.disabled = false;
+                
+                document.getElementById('myCheckIn').textContent = '--:--';
+                document.getElementById('myCheckOut').textContent = '--:--';
             }
         }
 
@@ -615,12 +834,12 @@
             }, 3000);
         }
 
-        // Check if already logged in
-        const savedUser = localStorage.getItem('currentUser');
-        if (savedUser) {
-            const user = JSON.parse(savedUser);
-            login(user.role);
-        }
+        // Cleanup on page unload
+        window.onbeforeunload = function() {
+            if (html5QrCode && isScannerRunning) {
+                html5QrCode.stop().catch(() => {});
+            }
+        };
     </script>
 </body>
 </html>
