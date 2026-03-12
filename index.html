@@ -8,9 +8,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     
-    <!-- Firebase SDK - COMPAT VERSION -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -322,14 +323,25 @@
         };
 
         // Initialize Firebase
-        let app, db;
+        let app, db, auth;
         let isConnected = false;
+        let isAuthenticated = false;
 
         try {
             app = firebase.initializeApp(firebaseConfig);
             db = firebase.database();
+            auth = firebase.auth();
             isConnected = true;
             console.log("✅ Firebase connected!");
+            
+            // Anonymous auth for database access
+            auth.signInAnonymously().then(() => {
+                isAuthenticated = true;
+                console.log("✅ Anonymous auth successful!");
+            }).catch((error) => {
+                console.error("❌ Auth error:", error);
+            });
+            
         } catch(e) {
             console.error("❌ Firebase error:", e);
             isConnected = false;
@@ -340,7 +352,7 @@
         // ==========================================
         const ADMIN_ID = 'admin';
         const ADMIN_PASS = '1234';
-        const USER_KEY = 'savitri_user_v9';
+        const USER_KEY = 'savitri_user_v10';
         
         let currentUser = null;
         let html5QrCode = null;
@@ -710,6 +722,14 @@
                 errorDiv.textContent = '❌ Database not connected. Please check internet.';
                 errorDiv.classList.remove('hidden');
                 showToast('❌ Database not connected', 'error');
+                return;
+            }
+            
+            // Check authentication
+            if (!isAuthenticated) {
+                errorDiv.textContent = '❌ Not authenticated. Please wait...';
+                errorDiv.classList.remove('hidden');
+                showToast('❌ Please wait, authenticating...', 'error');
                 return;
             }
             
