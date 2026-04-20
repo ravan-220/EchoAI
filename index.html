@@ -3,174 +3,307 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Savitri Success Library - Pro V5.1</title>
+  <title>Savitri Success Library - Ultimate V6</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', sans-serif; }
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
     .gradient-bg { background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%); }
-    .glass { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
-    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+    .glass { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.2); }
+    .card { background: white; border-radius: 1.25rem; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); transition: 0.3s; }
+    .seat-box { border: 2px solid #e2e8f0; border-radius: 0.75rem; transition: 0.2s; cursor: pointer; }
+    .seat-occupied { background: #ecfdf5; border-color: #10b981; }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 100; align-items: center; justify-content: center; padding: 1rem; }
     .modal.active { display: flex; }
-    .seat-box { border: 2px solid #e2e8f0; transition: 0.3s; cursor: pointer; }
-    .occupied { background: #ecfdf5; border-color: #10b981; }
+    .hide-id select option { padding: 8px; }
   </style>
 </head>
-<body class="bg-slate-50">
+<body>
 
-  <div id="loginScreen" class="fixed inset-0 gradient-bg flex items-center justify-center z-50">
-    <div class="glass p-8 rounded-3xl w-80 text-center text-white">
-      <h1 class="text-2xl font-bold mb-6">SSL Admin Login</h1>
-      <input type="text" id="admUser" placeholder="Admin ID" class="w-full p-2 mb-3 rounded text-black outline-none">
-      <input type="password" id="admPass" placeholder="Password" class="w-full p-2 mb-4 rounded text-black outline-none">
-      <button onclick="loginAdmin()" class="w-full bg-emerald-500 py-2 rounded font-bold">Login</button>
-      <p class="mt-4 text-xs opacity-70">Use admin / 7023</p>
+  <div id="loginScreen" class="fixed inset-0 gradient-bg flex items-center justify-center z-50 p-4">
+    <div class="glass p-8 rounded-[2.5rem] w-full max-w-md text-center shadow-2xl">
+      <div class="text-5xl mb-4">📚</div>
+      <h1 class="text-3xl font-bold text-white mb-2">Savitri Success Library</h1>
+      <p class="text-white/80 mb-8">Attendance & Management System</p>
+      
+      <div id="loginOptions" class="space-y-4">
+        <button onclick="toggleForm('staff')" class="w-full bg-white text-indigo-700 font-bold py-4 rounded-2xl shadow-xl flex items-center justify-center gap-3">
+          👨‍💼 Admin Portal
+        </button>
+        <button onclick="toggleForm('student')" class="w-full bg-white/20 text-white font-bold py-4 rounded-2xl border border-white/30 flex items-center justify-center gap-3">
+          🎓 Student Login
+        </button>
+      </div>
+
+      <div id="staffForm" class="hidden mt-6 space-y-3 text-left">
+        <input type="text" id="adminUser" placeholder="Admin ID" class="w-full p-3 rounded-xl outline-none">
+        <input type="password" id="adminPass" placeholder="Password" class="w-full p-3 rounded-xl outline-none">
+        <button onclick="loginAdmin()" class="w-full bg-emerald-500 text-white font-bold py-3 rounded-xl mt-2">Enter Dashboard</button>
+        <button onclick="location.reload()" class="w-full text-white/60 text-sm">Cancel</button>
+      </div>
+
+      <div id="studentForm" class="hidden mt-6 space-y-3 text-left">
+        <select id="studentSelect" class="w-full p-3 rounded-xl outline-none text-slate-800">
+          <option value="">👤 Select Your Name</option>
+        </select>
+        <input type="password" id="studentPin" placeholder="Enter PIN" class="w-full p-3 rounded-xl outline-none text-slate-800">
+        <button onclick="loginStudent()" class="w-full bg-emerald-500 text-white font-bold py-3 rounded-xl mt-2">Login</button>
+        <button onclick="location.reload()" class="w-full text-white/60 text-sm">Cancel</button>
+      </div>
     </div>
   </div>
 
-  <div id="adminPanel" class="hidden">
-    <nav class="gradient-bg p-4 text-white flex justify-between items-center shadow-lg">
-      <h2 class="font-bold">Savitri Admin Portal</h2>
-      <button onclick="openAddModal()" class="bg-white text-indigo-700 px-4 py-1 rounded-lg font-bold text-sm">+ Add Student</button>
+  <div id="adminDashboard" class="hidden min-h-screen pb-10">
+    <nav class="gradient-bg p-4 text-white sticky top-0 z-40 shadow-lg">
+      <div class="max-w-6xl mx-auto flex justify-between items-center">
+        <h2 class="font-bold text-xl">SSL Admin</h2>
+        <div class="flex gap-2">
+          <button onclick="openModal('addStudentModal')" class="bg-white/20 px-4 py-2 rounded-xl text-sm font-bold">+ Add Student</button>
+          <button onclick="location.reload()" class="bg-rose-500 px-4 py-2 rounded-xl text-sm font-bold">Logout</button>
+        </div>
+      </div>
     </nav>
 
-    <div class="p-4 space-y-6">
-      <div class="bg-white p-4 rounded-xl shadow">
-        <h3 class="font-bold mb-3">Live Seat View</h3>
-        <div id="seatGrid" class="grid grid-cols-5 md:grid-cols-10 gap-2"></div>
+    <main class="max-w-6xl mx-auto p-4 space-y-6">
+      <div class="card p-6">
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">🪑 Live Seat Occupancy (With Names)</h3>
+        <div id="seatGrid" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-10 gap-3"></div>
       </div>
 
-      <div class="bg-white rounded-xl shadow overflow-hidden">
-        <table class="w-full text-left text-sm">
-          <thead class="bg-slate-100">
-            <tr>
-              <th class="p-3">Student Name</th>
-              <th class="p-3">Seat</th>
-              <th class="p-3">Phone</th>
-              <th class="p-3">Action</th>
-            </tr>
-          </thead>
-          <tbody id="studentTable"></tbody>
-        </table>
+      <div class="card overflow-hidden">
+        <div class="p-4 border-b bg-slate-50 flex justify-between items-center">
+          <h3 class="font-bold">Member Directory</h3>
+          <input type="text" oninput="filterStudents(this.value)" placeholder="Search student..." class="border rounded-lg px-3 py-1 text-sm outline-indigo-500">
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead class="bg-slate-100 text-slate-600 uppercase text-[10px] font-bold">
+              <tr>
+                <th class="p-4">Student Name</th>
+                <th class="p-4">Seat</th>
+                <th class="p-4">Fee Month</th>
+                <th class="p-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminStudentTable" class="divide-y"></tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </main>
   </div>
 
-  <div id="addModal" class="modal">
-    <div class="bg-white p-6 rounded-2xl w-80 space-y-3">
-      <h3 class="font-bold text-lg">Add New Student</h3>
-      <input type="text" id="stName" placeholder="Full Name" class="w-full border p-2 rounded">
-      <input type="number" id="stSeat" placeholder="Seat Number" class="w-full border p-2 rounded">
-      <input type="text" id="stPhone" placeholder="Phone (Parent)" class="w-full border p-2 rounded">
-      <input type="password" id="stPin" placeholder="Set Login PIN" class="w-full border p-2 rounded">
+  <div id="studentDashboard" class="hidden min-h-screen pb-10">
+    <div class="gradient-bg p-8 text-white text-center rounded-b-[3rem] shadow-xl">
+      <h2 id="stWelcomeName" class="text-3xl font-bold">Welcome!</h2>
+      <p id="stMeta" class="opacity-80 mt-2">Seat -- | Fee: --</p>
+    </div>
+
+    <main class="max-w-md mx-auto p-4 -mt-6 space-y-4">
+      <div class="card p-6 shadow-2xl flex gap-3">
+        <button onclick="markAttendance('Check-In')" class="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-emerald-200">IN</button>
+        <button onclick="markAttendance('Check-Out')" class="flex-1 bg-rose-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-rose-200">OUT</button>
+      </div>
+
+      <div class="card p-6">
+        <h3 class="font-bold mb-4 flex justify-between items-center">
+          📅 Attendance History
+          <span class="text-xs font-normal text-slate-500">Last 30 Days</span>
+        </h3>
+        <div id="stHistoryList" class="space-y-3 max-h-80 overflow-y-auto pr-1"></div>
+      </div>
+    </main>
+  </div>
+
+  <div id="addStudentModal" class="modal">
+    <div class="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4">
+      <h3 class="font-bold text-xl">Student Details</h3>
+      <input type="text" id="regName" placeholder="Full Name" class="w-full p-3 bg-slate-100 rounded-xl outline-none">
       <div class="flex gap-2">
-        <button onclick="saveStudent()" class="flex-1 bg-indigo-600 text-white py-2 rounded font-bold">Save</button>
-        <button onclick="closeAddModal()" class="flex-1 bg-slate-200 py-2 rounded">Cancel</button>
+        <input type="number" id="regSeat" placeholder="Seat No" class="w-1/2 p-3 bg-slate-100 rounded-xl outline-none">
+        <input type="password" id="regPin" placeholder="Set PIN" class="w-1/2 p-3 bg-slate-100 rounded-xl outline-none">
+      </div>
+      <input type="text" id="regFee" placeholder="Fee Month (e.g. Oct 2026)" class="w-full p-3 bg-slate-100 rounded-xl outline-none">
+      <div class="flex gap-2">
+        <button onclick="saveStudent()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Save Student</button>
+        <button onclick="closeModal('addStudentModal')" class="flex-1 bg-slate-200 py-3 rounded-xl">Cancel</button>
       </div>
     </div>
   </div>
 
   <script>
-    // 1. Firebase Config (APNI DETAILS YAHAN DALEIN)
+    // --- FIREBASE SETUP (PASTE YOUR DETAILS HERE) ---
     const firebaseConfig = {
       apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      databaseURL: "https://YOUR_PROJECT.firebaseio.com",
-      projectId: "YOUR_PROJECT",
-      storageBucket: "YOUR_PROJECT.appspot.com",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
       messagingSenderId: "...",
       appId: "..."
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // 2. Admin Login
-    function loginAdmin() {
-      const u = document.getElementById('admUser').value;
-      const p = document.getElementById('admPass').value;
-      if(u === "admin" && p === "7023") {
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('adminPanel').classList.remove('hidden');
-        loadData();
-      } else {
-        alert("Invalid Login!");
-      }
+    let studentsData = {};
+    let currentUser = null;
+
+    // --- NAVIGATION ---
+    function toggleForm(type) {
+      document.getElementById('loginOptions').classList.add('hidden');
+      if(type === 'staff') document.getElementById('staffForm').classList.remove('hidden');
+      else document.getElementById('studentForm').classList.remove('hidden');
     }
 
-    // 3. Modal Controls
-    function openAddModal() { document.getElementById('addModal').classList.add('active'); }
-    function closeAddModal() { document.getElementById('addModal').classList.remove('active'); }
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
-    // 4. SAVE STUDENT TO FIREBASE
-    function saveStudent() {
-      const name = document.getElementById('stName').value;
-      const seat = document.getElementById('stSeat').value;
-      const phone = document.getElementById('stPhone').value;
-      const pin = document.getElementById('stPin').value;
-
-      if(!name || !seat || !pin) return alert("Please fill all fields!");
-
-      const newRef = db.ref('students').push();
-      newRef.set({
-        name: name,
-        seat: seat,
-        phone: phone,
-        pin: pin,
-        feeStatus: "Paid",
-        addedOn: new Date().toLocaleDateString()
-      }).then(() => {
-        alert("Student Added Successfully!");
-        closeAddModal();
-        // Clear Inputs
-        document.getElementById('stName').value = '';
-        document.getElementById('stSeat').value = '';
-        document.getElementById('stPhone').value = '';
-        document.getElementById('stPin').value = '';
+    // --- DATA LOADING ---
+    function syncData() {
+      db.ref('students').on('value', snap => {
+        studentsData = snap.val() || {};
+        renderAdmin();
+        updateStudentDropdown();
       });
     }
 
-    // 5. LOAD & DISPLAY DATA
-    function loadData() {
-      db.ref('students').on('value', snap => {
-        const students = snap.val() || {};
-        const table = document.getElementById('studentTable');
-        const grid = document.getElementById('seatGrid');
-        
-        table.innerHTML = '';
-        grid.innerHTML = '';
+    function updateStudentDropdown() {
+      const select = document.getElementById('studentSelect');
+      select.innerHTML = '<option value="">👤 Select Your Name</option>';
+      Object.keys(studentsData).forEach(id => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.innerText = studentsData[id].name; // Only Name, No ID
+        select.appendChild(opt);
+      });
+    }
 
-        // Render Seats (1 to 50)
-        for(let i=1; i<=50; i++) {
-          const owner = Object.values(students).find(s => s.seat == i);
-          grid.innerHTML += `
-            <div class="seat-box p-2 text-center rounded text-xs ${owner ? 'occupied' : ''}">
-              ${i}<br><span class="text-[9px]">${owner ? owner.name.split(' ')[0] : 'Empty'}</span>
-            </div>
-          `;
-        }
+    // --- ADMIN ACTIONS ---
+    function saveStudent() {
+      const name = document.getElementById('regName').value;
+      const seat = document.getElementById('regSeat').value;
+      const pin = document.getElementById('regPin').value;
+      const fee = document.getElementById('regFee').value;
 
-        // Render List
-        Object.keys(students).forEach(id => {
-          const s = students[id];
-          table.innerHTML += `
-            <tr class="border-b">
-              <td class="p-3 font-medium">${s.name}</td>
-              <td class="p-3">${s.seat}</td>
-              <td class="p-3">${s.phone || '-'}</td>
-              <td class="p-3 text-rose-500 font-bold cursor-pointer" onclick="deleteStudent('${id}')">Delete</td>
-            </tr>
-          `;
+      if(!name || !seat || !pin) return alert("Fill all fields!");
+
+      db.ref('students').push({
+        name, seat, pin, feeStatus: fee, addedAt: Date.now()
+      }).then(() => {
+        closeModal('addStudentModal');
+        alert("Student Added Successfully!");
+      });
+    }
+
+    function deleteStudent(id) {
+      if(confirm("Delete this student permanently?")) {
+        db.ref(`students/${id}`).remove();
+      }
+    }
+
+    function renderAdmin() {
+      const table = document.getElementById('adminStudentTable');
+      const grid = document.getElementById('seatGrid');
+      table.innerHTML = '';
+      grid.innerHTML = '';
+
+      // Seat Map
+      for(let i=1; i<=50; i++) {
+        const st = Object.values(studentsData).find(s => s.seat == i);
+        grid.innerHTML += `
+          <div class="seat-box p-2 text-center text-[10px] font-bold ${st ? 'seat-occupied' : 'bg-slate-50'}">
+            <div class="text-slate-400">#${i}</div>
+            <div class="truncate mt-1">${st ? st.name.split(' ')[0] : 'EMPTY'}</div>
+          </div>
+        `;
+      }
+
+      // Directory List
+      Object.keys(studentsData).forEach(id => {
+        const s = studentsData[id];
+        table.innerHTML += `
+          <tr>
+            <td class="p-4 font-bold text-slate-800">${s.name}</td>
+            <td class="p-4">Seat ${s.seat}</td>
+            <td class="p-4"><span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold">${s.feeStatus || 'Paid'}</span></td>
+            <td class="p-4">
+              <button onclick="deleteStudent('${id}')" class="text-rose-500 hover:font-bold">Delete</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    // --- ATTENDANCE & WHATSAPP ALERT ---
+    function markAttendance(type) {
+      if(!currentUser) return;
+      const dateKey = new Date().toISOString().split('T')[0];
+      const time = new Date().toLocaleTimeString();
+      
+      db.ref(`attendance/${dateKey}/${currentUser.id}`).update({
+        name: currentUser.name,
+        [type === 'Check-In' ? 'in' : 'out']: time
+      }).then(() => {
+        alert(`${type} Success!`);
+        // WhatsApp Alert Simulation (Notification)
+        console.log(`Alert to 7023909061: ${currentUser.name} ${type} at ${time}`);
+        loadStudentHistory();
+      });
+    }
+
+    // --- STUDENT HISTORY ---
+    function loadStudentHistory() {
+      const list = document.getElementById('stHistoryList');
+      list.innerHTML = 'Loading...';
+      
+      db.ref('attendance').limitToLast(30).once('value', snap => {
+        list.innerHTML = '';
+        const all = snap.val() || {};
+        Object.keys(all).reverse().forEach(date => {
+          const myData = all[date][currentUser.id];
+          if(myData) {
+            list.innerHTML += `
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center text-sm">
+                <div>
+                  <div class="font-bold text-slate-500 text-xs">${date}</div>
+                  <div>In: ${myData.in || '--'} | Out: ${myData.out || '--'}</div>
+                </div>
+                <div class="text-emerald-600 font-bold">Present</div>
+              </div>
+            `;
+          }
         });
       });
     }
 
-    // 6. DELETE STUDENT
-    function deleteStudent(id) {
-      if(confirm("Are you sure?")) {
-        db.ref(`students/${id}`).remove();
-      }
+    // --- LOGIN LOGIC ---
+    function loginAdmin() {
+      if(document.getElementById('adminUser').value === 'admin' && 
+         document.getElementById('adminPass').value === '7023') {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('adminDashboard').classList.remove('hidden');
+      } else alert("Invalid Admin!");
     }
+
+    function loginStudent() {
+      const id = document.getElementById('studentSelect').value;
+      const pin = document.getElementById('studentPin').value;
+      if(!id || !pin) return alert("Select Name & PIN");
+
+      const s = studentsData[id];
+      if(s.pin === pin) {
+        currentUser = {id, ...s};
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('studentDashboard').classList.remove('hidden');
+        document.getElementById('stWelcomeName').innerText = "Hi, " + s.name;
+        document.getElementById('stMeta').innerText = `Seat: ${s.seat} | Fee: ${s.feeStatus}`;
+        loadStudentHistory();
+      } else alert("Wrong PIN!");
+    }
+
+    // Initialize
+    syncData();
   </script>
 </body>
 </html>
