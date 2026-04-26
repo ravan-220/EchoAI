@@ -36,6 +36,7 @@
   <div id="connectionStatus" class="fixed top-3 right-3 z-50 flex items-center gap-2 bg-white px-3 py-2 rounded-full shadow-lg text-xs font-bold">
     <span id="statusDot" class="w-2 h-2 rounded-full bg-yellow-500 sync-pulse"></span>
     <span id="statusText">Checking...</span>
+    <button onclick="toggleSound()" id="soundToggle" class="ml-2 text-lg" title="Toggle Sound">🔊</button>
   </div>
   <!-- Login/Logout Notification Popup -->
   <div id="loginPopup" class="fixed top-16 right-3 z-50 transform translate-x-full transition-transform duration-500 ease-out">
@@ -1099,6 +1100,70 @@
 
     
     // Login/Logout Popup Functions
+    
+    // Sound Notification System
+    let SOUND_ENABLED = true;
+
+    function toggleSound() {
+      SOUND_ENABLED = !SOUND_ENABLED;
+      const btn = $('soundToggle');
+      if (btn) {
+        btn.textContent = SOUND_ENABLED ? '🔊' : '🔇';
+        btn.title = SOUND_ENABLED ? 'Sound On' : 'Sound Off';
+      }
+      showToast(SOUND_ENABLED ? 'Sound notifications ON' : 'Sound notifications OFF');
+    }
+
+    // Create audio context for beep sounds (no external files needed)
+    function playBeep(frequency = 800, duration = 200, type = 'sine') {
+      if (!SOUND_ENABLED) return;
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.frequency.value = frequency;
+        oscillator.type = type;
+
+        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration / 1000);
+
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + duration / 1000);
+      } catch (e) {
+        console.log('Sound not supported');
+      }
+    }
+
+    function playLoginSound() {
+      // Pleasant ascending beeps for login
+      playBeep(523, 150, 'sine'); // C5
+      setTimeout(() => playBeep(659, 150, 'sine'), 100); // E5
+      setTimeout(() => playBeep(784, 200, 'sine'), 200); // G5
+    }
+
+    function playLogoutSound() {
+      // Descending beeps for logout
+      playBeep(784, 150, 'sine'); // G5
+      setTimeout(() => playBeep(659, 150, 'sine'), 100); // E5
+      setTimeout(() => playBeep(523, 200, 'sine'), 200); // C5
+    }
+
+    function playCheckinSound() {
+      // Quick happy beep for check-in
+      playBeep(880, 100, 'sine'); // A5
+      setTimeout(() => playBeep(1100, 150, 'sine'), 80); // C6
+    }
+
+    function playCheckoutSound() {
+      // Quick lower beep for check-out
+      playBeep(600, 100, 'sine');
+      setTimeout(() => playBeep(450, 150, 'sine'), 80);
+    }
+
     function showLoginPopup(title, message, icon = '🎓', type = 'login') {
       const popup = $('loginPopup');
       const popupIcon = $('popupIcon');
@@ -1113,6 +1178,13 @@
 
       // Set border color based on type
       popup.querySelector('.border-l-4').className = `bg-white rounded-2xl shadow-2xl border-l-4 ${type === 'login' ? 'border-emerald-500' : type === 'logout' ? 'border-rose-500' : 'border-indigo-500'} p-4 max-w-sm min-w-[300px]`;
+
+      // Play sound based on type
+      if (type === 'login') {
+        playLoginSound();
+      } else if (type === 'logout') {
+        playLogoutSound();
+      }
 
       // Show popup
       popup.classList.remove('translate-x-full');
@@ -1143,6 +1215,7 @@
         if (record.dateKey === todayKey() && record.status === 'Checked In' && !record.checkOut) {
           const studentName = record.studentName || 'Unknown';
           const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          playCheckinSound(); // Play check-in sound
           showLoginPopup('🟢 Student Check-In', `${studentName} checked in at ${time}`, '🎓', 'login');
         }
       });
@@ -1159,6 +1232,7 @@
         if (record.dateKey === todayKey() && record.status === 'Checked Out' && record.checkOut) {
           const studentName = record.studentName || 'Unknown';
           const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          playCheckoutSound(); // Play check-out sound
           showLoginPopup('🔴 Student Check-Out', `${studentName} checked out at ${time}`, '👋', 'logout');
         }
       });
