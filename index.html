@@ -328,6 +328,21 @@
                   <option value="qr">QR Only</option>
                 </select>
               </label>
+              <label class="text-sm col-span-2 font-bold text-indigo-700">📍 Library Location (Geofencing)</label>
+              <label class="text-sm">Library Latitude
+                <input id="settingLibraryLat" type="number" step="0.000001" placeholder="e.g. 28.6139" class="border rounded-xl px-3 py-2 w-full mt-1" />
+              </label>
+              <label class="text-sm">Library Longitude
+                <input id="settingLibraryLng" type="number" step="0.000001" placeholder="e.g. 77.2090" class="border rounded-xl px-3 py-2 w-full mt-1" />
+              </label>
+              <label class="text-sm">Geo Fence Radius (meters)
+                <input id="settingGeoRadius" type="number" min="10" max="1000" value="100" class="border rounded-xl px-3 py-2 w-full mt-1" />
+              </label>
+              <label class="text-sm col-span-2">
+                <input id="settingGeoFenceEnabled" type="checkbox" class="w-4 h-4 mr-2" checked />
+                Enable Geofencing (Auto logout when leaving library area)
+              </label>
+              <p class="text-xs text-slate-500 col-span-2">Set your library's GPS coordinates. Students will be auto-logged out when they move beyond the specified radius.</p>
             </div>
             <label class="flex items-center gap-2 text-sm"><input id="settingRequireQr" type="checkbox" class="w-4 h-4" /> Legacy QR lock (kept for old data compatibility)</label>
             <p class="text-xs text-slate-500">Direct Button mode is easiest for daily use. Hybrid allows both manual buttons and active QR. QR Only forces scan-based attendance.</p>
@@ -1656,6 +1671,133 @@
       });
     }
 
+    
+    // Geofencing Functions
+    function getLibraryLocation() {
+      return {
+        lat: parseFloat(state.settings.libraryLat) || 0,
+        lng: parseFloat(state.settings.libraryLng) || 0,
+        radius: parseInt(state.settings.geoRadius) || 100,
+        enabled: state.settings.geoFenceEnabled !== false
+      };
+    }
+
+    function isWithinLibraryArea(studentLat, studentLng) {
+      const lib = getLibraryLocation();
+      if (!lib.enabled || lib.lat === 0 || lib.lng === 0) return true; // If not set, allow all
+
+      const distance = calculateDistance(studentLat, studentLng, lib.lat, lib.lng);
+      return distance <= lib.radius;
+    }
+
+    function calculateDistance(lat1, lng1, lat2, lng2) {
+      const R = 6371000; // Earth radius in meters
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    // Auto-check location and logout if outside library area
+    let geoCheckInterval = null;
+
+    function startGeoFenceMonitoring() {
+      if (geoCheckInterval) clearInterval(geoCheckInterval);
+
+      const lib = getLibraryLocation();
+      if (!lib.enabled || currentUser?.role !== 'student') return;
+
+      // Check every 30 seconds
+      geoCheckInterval = setInterval(async () => {
+        if (!currentUser || currentUser.role !== 'student') {
+          stopGeoFenceMonitoring();
+          return;
+        }
+
+        try {
+          const position = await getCurrentPosition();
+          const studentLat = position.coords.latitude;
+          const studentLng = position.coords.longitude;
+
+          if (!isWithinLibraryArea(studentLat, studentLng)) {
+            // Student is outside library area - auto logout
+            const student = state.students[currentUser.id];
+            if (student) {
+              // Check if currently checked in
+              const todayRec = getAttendanceRecord(currentUser.id, todayKey());
+              if (todayRec && todayRec.status === 'Checked In' && !todayRec.checkOut) {
+                // Auto check-out
+                await handleAttendanceAction(null, 'checkout', 'geofence');
+                showToast('📍 Auto checked-out: You left the library area', 'error');
+                playLogoutSound();
+              }
+            }
+          }
+        } catch (e) {
+          // Location error - don't auto logout
+          console.log('Geo check failed:', e);
+        }
+      }, 30000); // Check every 30 seconds
+    }
+
+    function stopGeoFenceMonitoring() {
+      if (geoCheckInterval) {
+        clearInterval(geoCheckInterval);
+        geoCheckInterval = null;
+      }
+    }
+
+    function getCurrentPosition() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error('Geolocation not supported'));
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 30000
+        });
+      });
+    }
+
+    // Update settings form to include geofencing
+    const originalRenderSettingsForm = renderSettingsForm;
+    renderSettingsForm = function() {
+      originalRenderSettingsForm();
+      $('settingLibraryLat').value = state.settings.libraryLat || '';
+      $('settingLibraryLng').value = state.settings.libraryLng || '';
+      $('settingGeoRadius').value = state.settings.geoRadius || 100;
+      $('settingGeoFenceEnabled').checked = state.settings.geoFenceEnabled !== false;
+    };
+
+    // Update saveSettings to include geofencing
+    const originalSaveSettings = saveSettings;
+    saveSettings = async function() {
+      if (!canManageStaffPanel()) return;
+      const payload = {
+        openTime: $('settingOpenTime').value,
+        lateAfter: $('settingLateAfter').value,
+        closeTime: $('settingCloseTime').value,
+        minStudyHours: Number($('settingMinHours').value || DEFAULT_SETTINGS.minStudyHours),
+        qrExpirySeconds: Number($('settingQrExpiry').value || DEFAULT_SETTINGS.qrExpirySeconds),
+        requireQr: $('settingRequireQr').checked,
+        attendanceMode: $('settingAttendanceMode').value || 'hybrid',
+        defaultFeePlan: $('settingFeePlan').value.trim() || 'Monthly',
+        photoProofRequired: !!document.getElementById('settingPhotoProof')?.checked,
+        libraryLat: $('settingLibraryLat').value,
+        libraryLng: $('settingLibraryLng').value,
+        geoRadius: Number($('settingGeoRadius').value || 100),
+        geoFenceEnabled: $('settingGeoFenceEnabled').checked
+      };
+      await settingsRef.set(payload);
+      await addAuditLog('Settings updated', 'Library rules and geofencing updated', currentUser.name);
+      showToast('Rules saved');
+    };
+
     function renderAll() {
       renderStudentDropdown();
       renderQrStatus();
@@ -2449,36 +2591,52 @@
         }
       }
 
-      const record = getAttendanceRecord(student.id, key);
-      const action = requestedAction || (!record ? 'checkin' : (record.status === 'Checked In' && !record.checkOut ? 'checkout' : 'done'));
+      // Get the most recent record for today (for multiple sessions per day)
+      const todayRecords = getAttendanceArray().filter(r => r.studentId === student.id && r.dateKey === key);
+      const lastRecord = todayRecords.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+
+      // Determine action based on last record
+      let action = requestedAction;
+      if (!action) {
+        if (!lastRecord || lastRecord.status === 'Checked Out' || lastRecord.status === 'Leave') {
+          action = 'checkin';
+        } else if (lastRecord.status === 'Checked In' && !lastRecord.checkOut) {
+          action = 'checkout';
+        } else {
+          action = 'done';
+        }
+      }
 
       if (action === 'checkin') {
-        if (record && record.status !== 'Leave') {
-          showToast('You are already checked in or completed for today', 'error');
-          return;
-        }
+        // Allow multiple check-ins per day (for lunch break, etc.)
         const now = new Date().toISOString();
         const payload = buildAttendancePayload(student, key, now);
         await attendanceRef.child(payload.id).set(payload);
-        await addAuditLog('Attendance check-in', `${student.name} checked in via ${usingQr ? 'QR' : 'button'}`, student.name);
+        await addAuditLog('Attendance check-in', `${student.name} checked in via ${usingQr ? 'QR' : 'button'} (Session #${todayRecords.filter(r => r.status === 'Checked In').length + 1})`, student.name);
         showToast('Checked in successfully');
+
+        // Start geofence monitoring if enabled
+        startGeoFenceMonitoring();
         return;
       }
 
       if (action === 'checkout') {
-        if (!record || record.status !== 'Checked In' || record.checkOut) {
+        if (!lastRecord || lastRecord.status !== 'Checked In' || lastRecord.checkOut) {
           showToast('Check in first, then you can check out', 'error');
           return;
         }
         const now = new Date().toISOString();
-        const payload = buildAttendancePayload(student, key, record.checkIn, now, { id: record.id, timestamp: record.timestamp, corrected: record.corrected, remark: record.remark || '' });
-        await attendanceRef.child(record.id).update(payload);
+        const payload = buildAttendancePayload(student, key, lastRecord.checkIn, now, { id: lastRecord.id, timestamp: lastRecord.timestamp, corrected: lastRecord.corrected, remark: lastRecord.remark || '' });
+        await attendanceRef.child(lastRecord.id).update(payload);
         await addAuditLog('Attendance check-out', `${student.name} checked out via ${usingQr ? 'QR' : 'button'}`, student.name);
         showToast('Checked out successfully');
+
+        // Stop geofence monitoring
+        stopGeoFenceMonitoring();
         return;
       }
 
-      showToast('Attendance already completed for today', 'error');
+      showToast('You have completed all sessions for today', 'error');
     }
 
     function refreshStudentDashboard() {
@@ -2511,7 +2669,12 @@
       if ((mode === 'hybrid' || mode === 'qr') && !hasActiveQrSession()) note += ' QR session is currently closed.';
       $('attendanceModeNote').textContent = note;
 
-      if (!record) {
+      // Get all today's records for session counting
+      const todayAllRecords = getAttendanceArray().filter(r => r.studentId === student.id && r.dateKey === todayKey());
+      const sessionCount = todayAllRecords.filter(r => r.status === 'Checked In').length;
+      const lastRecord = todayAllRecords.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+
+      if (!lastRecord) {
         $('myStatusBadge').textContent = 'Not Marked';
         $('myStatusBadge').className = 'px-2 py-1 rounded text-xs font-bold bg-slate-200';
         $('myCheckIn').textContent = '--:--';
@@ -2521,34 +2684,43 @@
         checkOutBtn.disabled = true;
         checkInBtn.className = `w-full py-4 rounded-2xl font-bold text-base shadow-lg ${mode === 'qr' ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-emerald-600 text-white'}`;
         checkOutBtn.className = 'w-full py-4 rounded-2xl font-bold text-base bg-slate-300 text-slate-500 shadow-lg cursor-not-allowed';
+        $('attendanceModeNote').textContent = `Session ${sessionCount + 1}: Ready to check in`;
         return;
       }
 
-      if (record.status === 'Checked In' && !record.checkOut) {
-        $('myStatusBadge').textContent = 'Checked In';
+      if (lastRecord.status === 'Checked In' && !lastRecord.checkOut) {
+        $('myStatusBadge').textContent = `Checked In (Session ${sessionCount})`;
         $('myStatusBadge').className = 'px-2 py-1 rounded text-xs font-bold bg-emerald-100 text-emerald-700';
-        $('myCheckIn').textContent = fmtTime(record.checkIn);
+        $('myCheckIn').textContent = fmtTime(lastRecord.checkIn);
         $('myCheckOut').textContent = '--:--';
         $('myDuration').textContent = 'In Progress';
         checkInBtn.disabled = true;
         checkOutBtn.disabled = mode === 'qr';
         checkInBtn.className = 'w-full py-4 rounded-2xl font-bold text-base bg-slate-300 text-slate-500 shadow-lg cursor-not-allowed';
         checkOutBtn.className = `w-full py-4 rounded-2xl font-bold text-base shadow-lg ${mode === 'qr' ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-rose-600 text-white'}`;
+        $('attendanceModeNote').textContent = `Session ${sessionCount}: Check out when leaving`;
         return;
       }
 
-      $('myStatusBadge').textContent = record.status || 'Completed';
-      $('myStatusBadge').className = record.status === 'Leave'
-        ? 'px-2 py-1 rounded text-xs font-bold bg-amber-100 text-amber-700'
-        : 'px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-700';
-      $('myCheckIn').textContent = fmtTime(record.checkIn);
-      $('myCheckOut').textContent = fmtTime(record.checkOut);
-      $('myDuration').textContent = calculateDurationMinutes(record) ? `${(calculateDurationMinutes(record)/60).toFixed(1)}h` : '--';
-      checkInBtn.disabled = true;
+      // Last record is Checked Out - allow new session
+      $('myStatusBadge').textContent = `Completed (Session ${sessionCount})`;
+      $('myStatusBadge').className = 'px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-700';
+      $('myCheckIn').textContent = fmtTime(lastRecord.checkIn);
+      $('myCheckOut').textContent = fmtTime(lastRecord.checkOut);
+      $('myDuration').textContent = calculateDurationMinutes(lastRecord) ? `${(calculateDurationMinutes(lastRecord)/60).toFixed(1)}h` : '--';
+
+      // Enable check-in for next session
+      checkInBtn.disabled = mode === 'qr';
       checkOutBtn.disabled = true;
-      checkInBtn.className = 'w-full py-4 rounded-2xl font-bold text-base bg-slate-300 text-slate-500 shadow-lg cursor-not-allowed';
+      checkInBtn.className = `w-full py-4 rounded-2xl font-bold text-base shadow-lg ${mode === 'qr' ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-emerald-600 text-white'}`;
       checkOutBtn.className = 'w-full py-4 rounded-2xl font-bold text-base bg-slate-300 text-slate-500 shadow-lg cursor-not-allowed';
-      if (record.status === 'Leave') $('attendanceModeNote').textContent = 'Leave approved for today. Buttons stay locked.';
+      $('attendanceModeNote').textContent = `Session ${sessionCount} completed. Ready for session ${sessionCount + 1}.`;
+
+      if (lastRecord.status === 'Leave') {
+        $('myStatusBadge').textContent = 'Leave';
+        $('myStatusBadge').className = 'px-2 py-1 rounded text-xs font-bold bg-amber-100 text-amber-700';
+        $('attendanceModeNote').textContent = 'Leave approved for today.';
+      }
     }
 
     function renderStudentHistory(studentId) {
@@ -2566,10 +2738,14 @@
             : r.status === 'Leave'
               ? flagBadge('Leave', 'bg-amber-100 text-amber-700')
               : flagBadge(r.status || 'Other', 'bg-slate-200 text-slate-700');
+        // Count session number for this date
+        const dayRecords = records.filter(rec => rec.dateKey === r.dateKey && rec.status === 'Checked In');
+        const sessionNum = dayRecords.indexOf(r) + 1;
+
         tbody.insertAdjacentHTML('beforeend', `
           <tr>
             <td class="px-2 py-2">${escapeHtml(r.dateKey || '')}</td>
-            <td class="px-2 py-2">${statusBadge}</td>
+            <td class="px-2 py-2">${statusBadge} ${sessionNum > 0 ? '<span class="text-[10px] text-slate-400">S'+sessionNum+'</span>' : ''}</td>
             <td class="px-2 py-2">${calculateDurationMinutes(r) ? (calculateDurationMinutes(r) / 60).toFixed(1) + 'h' : '--'}</td>
           </tr>
         `);
