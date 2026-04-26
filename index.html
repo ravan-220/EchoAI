@@ -124,6 +124,7 @@
           <button class="tab-btn px-4 py-2 rounded-xl font-semibold text-sm bg-slate-100" data-tab="holidays" onclick="switchAdminTab('holidays')">Rules & Holidays</button>
           <button class="tab-btn px-4 py-2 rounded-xl font-semibold text-sm bg-slate-100" data-tab="fees" onclick="switchAdminTab('fees')">Fees & Seats</button>
           <button class="tab-btn px-4 py-2 rounded-xl font-semibold text-sm bg-slate-100" data-tab="tools" onclick="switchAdminTab('tools')">Tools & Audit</button>
+<button class="tab-btn px-4 py-2 rounded-xl font-semibold text-sm bg-slate-100" data-tab="archive" onclick="switchAdminTab('archive')">Monthly Archive</button>
         </div>
       </section>
 
@@ -366,7 +367,48 @@
         </div>
       </section>
 
-      <section id="tab-tools" class="admin-tab hidden space-y-4">
+      
+      <section id="tab-archive" class="admin-tab hidden space-y-4">
+        <div class="card p-4 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="font-bold text-lg">Monthly Student Archive</h3>
+              <p class="text-sm text-slate-500">View any month's students, seats, attendance and fee status</p>
+            </div>
+            <div class="flex flex-wrap gap-2 items-center">
+              <select id="archiveMonthSelect" onchange="renderMonthlyArchive()" class="border rounded-xl px-3 py-2 text-sm">
+                <option value="">Select Month</option>
+              </select>
+              <button onclick="generateMonthOptions()" class="bg-indigo-100 text-indigo-700 px-3 py-2 rounded-xl text-sm font-bold">Refresh Months</button>
+            </div>
+          </div>
+
+          <div id="archiveSummary" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+
+          <div class="overflow-auto rounded-2xl border border-slate-200 max-h-[500px]">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 sticky top-0">
+                <tr>
+                  <th class="px-3 py-3 text-left font-bold">#</th>
+                  <th class="px-3 py-3 text-left font-bold">Student</th>
+                  <th class="px-3 py-3 text-left font-bold">Roll</th>
+                  <th class="px-3 py-3 text-left font-bold">Class</th>
+                  <th class="px-3 py-3 text-left font-bold">Seat</th>
+                  <th class="px-3 py-3 text-left font-bold">Branch</th>
+                  <th class="px-3 py-3 text-left font-bold">Present Days</th>
+                  <th class="px-3 py-3 text-left font-bold">Study Hours</th>
+                  <th class="px-3 py-3 text-left font-bold">Fee Status</th>
+                  <th class="px-3 py-3 text-left font-bold">Status</th>
+                </tr>
+              </thead>
+              <tbody id="archiveTable" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+          <div id="archiveEmptyState" class="hidden text-center text-slate-500 py-8"><div class="text-4xl mb-2">📅</div><p>No data for selected month.</p></div>
+        </div>
+      </section>
+
+<section id="tab-tools" class="admin-tab hidden space-y-4">
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div class="card p-4 space-y-4">
             <div>
@@ -782,6 +824,147 @@
       } catch (error) {
         console.error(error);
       }
+    }
+
+    
+    function generateMonthOptions() {
+      const select = $('archiveMonthSelect');
+      const months = new Set();
+
+      // Get months from attendance records
+      getAttendanceArray().forEach(r => {
+        if (r.dateKey && r.dateKey.length >= 7) {
+          months.add(r.dateKey.slice(0, 7));
+        }
+      });
+
+      // Get months from student joining dates
+      getStudentsArray().forEach(s => {
+        if (s.joiningDate && s.joiningDate.length >= 7) {
+          months.add(s.joiningDate.slice(0, 7));
+        }
+      });
+
+      // Add current month if not present
+      months.add(todayKey().slice(0, 7));
+
+      // Sort descending (newest first)
+      const sorted = Array.from(months).sort((a, b) => b.localeCompare(a));
+
+      select.innerHTML = '<option value="">📅 Select Month</option>';
+      sorted.forEach(m => {
+        const [year, month] = m.split('-');
+        const date = new Date(year, month - 1);
+        const label = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = label + ' (' + m + ')';
+        select.appendChild(opt);
+      });
+    }
+
+    function renderMonthlyArchive() {
+      const monthPrefix = $('archiveMonthSelect').value;
+      const tbody = $('archiveTable');
+      const summary = $('archiveSummary');
+
+      if (!monthPrefix) {
+        tbody.innerHTML = '';
+        summary.innerHTML = '';
+        $('archiveEmptyState').classList.add('hidden');
+        return;
+      }
+
+      // Get all students who existed in this month
+      const allStudents = getStudentsArray();
+      const monthRecords = getAttendanceArray().filter(r => r.dateKey && r.dateKey.startsWith(monthPrefix));
+
+      // Students who joined on or before this month
+      const monthEnd = monthPrefix + '-31';
+      const activeStudents = allStudents.filter(s => {
+        if (s.isActive === false) {
+          const archiveData = s.archiveHistory && s.archiveHistory[monthPrefix];
+          return !!archiveData;
+        }
+        return !s.joiningDate || s.joiningDate <= monthEnd;
+      });
+
+      if (activeStudents.length === 0) {
+        tbody.innerHTML = '';
+        summary.innerHTML = '';
+        $('archiveEmptyState').classList.remove('hidden');
+        return;
+      }
+
+      $('archiveEmptyState').classList.add('hidden');
+
+      // Calculate summary
+      const totalStudents = activeStudents.length;
+      const totalPresent = new Set(monthRecords.filter(r => ['Checked In', 'Checked Out'].includes(r.status)).map(r => r.studentId)).size;
+      const totalHours = monthRecords.reduce((sum, r) => sum + calculateDurationMinutes(r), 0) / 60;
+      const feeDue = activeStudents.filter(s => {
+        const feeStatus = s.archiveHistory && s.archiveHistory[monthPrefix] ? s.archiveHistory[monthPrefix].feeStatus : deriveFeeStatus(s);
+        return feeStatus !== 'Paid';
+      }).length;
+
+      summary.innerHTML = `
+        <div class="card p-4"><div class="text-sm text-slate-500">Total Students</div><div class="text-3xl font-bold text-purple-700 mt-2">${totalStudents}</div></div>
+        <div class="card p-4"><div class="text-sm text-slate-500">Present This Month</div><div class="text-3xl font-bold text-emerald-600 mt-2">${totalPresent}</div></div>
+        <div class="card p-4"><div class="text-sm text-slate-500">Total Study Hours</div><div class="text-3xl font-bold text-blue-600 mt-2">${totalHours.toFixed(1)}h</div></div>
+        <div class="card p-4"><div class="text-sm text-slate-500">Fee Due</div><div class="text-3xl font-bold text-rose-600 mt-2">${feeDue}</div></div>
+      `;
+
+      // Render table
+      tbody.innerHTML = '';
+      activeStudents.sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((s, idx) => {
+        const studentRecords = monthRecords.filter(r => r.studentId === s.id);
+        const presentDays = studentRecords.filter(r => ['Checked In', 'Checked Out'].includes(r.status)).length;
+        const hours = studentRecords.reduce((sum, r) => sum + calculateDurationMinutes(r), 0) / 60;
+        const feeStatus = s.archiveHistory && s.archiveHistory[monthPrefix] ? s.archiveHistory[monthPrefix].feeStatus : deriveFeeStatus(s);
+        const seatNo = s.archiveHistory && s.archiveHistory[monthPrefix] ? s.archiveHistory[monthPrefix].seatNo : s.seatNo;
+        const branch = s.archiveHistory && s.archiveHistory[monthPrefix] ? s.archiveHistory[monthPrefix].branch : (s.branch || 'Main Branch');
+
+        const feeBadge = feeStatus === 'Paid'
+          ? flagBadge('Paid', 'bg-emerald-100 text-emerald-700')
+          : feeStatus === 'Overdue'
+            ? flagBadge('Overdue', 'bg-rose-100 text-rose-700')
+            : flagBadge('Due', 'bg-amber-100 text-amber-700');
+
+        const statusBadge = s.isActive === false
+          ? flagBadge('Left', 'bg-slate-200 text-slate-700')
+          : flagBadge('Active', 'bg-emerald-100 text-emerald-700');
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-3 py-3">${idx + 1}</td>
+          <td class="px-3 py-3"><div class="font-semibold">${escapeHtml(s.name || '')}</div></td>
+          <td class="px-3 py-3">${escapeHtml(String(s.roll || ''))}</td>
+          <td class="px-3 py-3">${escapeHtml(s.className || '-')}</td>
+          <td class="px-3 py-3 font-bold text-indigo-700">${escapeHtml(seatNo || '-')}</td>
+          <td class="px-3 py-3">${escapeHtml(branch)}</td>
+          <td class="px-3 py-3"><span class="font-bold ${presentDays > 20 ? 'text-emerald-600' : presentDays > 10 ? 'text-amber-600' : 'text-rose-600'}">${presentDays}</span> <span class="text-xs text-slate-500">days</span></td>
+          <td class="px-3 py-3 font-bold">${hours.toFixed(1)}h</td>
+          <td class="px-3 py-3">${feeBadge}</td>
+          <td class="px-3 py-3">${statusBadge}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function saveMonthlySnapshot(studentId, monthPrefix) {
+      const s = state.students[studentId];
+      if (!s) return;
+      const snapshot = {
+        name: s.name,
+        roll: s.roll,
+        className: s.className,
+        seatNo: s.seatNo,
+        branch: s.branch || 'Main Branch',
+        feeStatus: s.feeStatus || 'Paid',
+        feePlan: s.feePlan || state.settings.defaultFeePlan || 'Monthly',
+        savedAt: Date.now()
+      };
+      await studentsRef.child(studentId).child('archiveHistory').child(monthPrefix).set(snapshot);
     }
 
     function renderAll() {
@@ -1339,6 +1522,7 @@
         createdAt: activeStudentId ? state.students[activeStudentId].createdAt || Date.now() : Date.now()
       };
       await studentsRef.child(payload.id).set(payload);
+      await saveMonthlySnapshot(payload.id, todayKey().slice(0, 7));
       await addAuditLog(activeStudentId ? 'Student updated' : 'Student added', `${payload.name} (${payload.roll})`, currentUser.name);
       closeModal('studentModal');
       showToast(`Student ${activeStudentId ? 'updated' : 'added'} successfully`);
@@ -1676,7 +1860,6 @@
 
     function renderStudentHistory(studentId) {
       const tbody = $('myHistoryTable');
-      // FIX: Sort by dateKey descending (newest first) so last days show properly
       const records = getAttendanceArray()
         .filter(r => r.studentId === studentId)
         .sort((a, b) => (b.dateKey || '').localeCompare(a.dateKey || ''))
@@ -1889,6 +2072,7 @@
       due.setMonth(due.getMonth() + 1);
       const nextDue = due.toISOString().split('T')[0];
       await studentsRef.child(id).update({ feeStatus: 'Paid', lastPaidDate: todayKey(), feeDueDate: nextDue, updatedAt: Date.now() });
+      await saveMonthlySnapshot(id, todayKey().slice(0, 7));
       await addAuditLog('Fee marked paid', `${s.name} paid until ${nextDue}`, currentUser.name);
       showToast('Fee marked as paid');
     }
@@ -2332,6 +2516,7 @@
             <button onclick="editStudent('${s.id}')" class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-lg text-xs font-bold">Edit</button>
             <button onclick="toggleStudentArchive('${s.id}')" class="bg-slate-200 text-slate-700 px-3 py-1 rounded-lg text-xs font-bold">${s.isActive === false ? 'Activate' : 'Archive'}</button>
             <button onclick="markFeePaid('${s.id}')" class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-xs font-bold">Paid</button>
+            <button onclick="deleteStudent('${s.id}')" class="bg-rose-100 text-rose-700 px-3 py-1 rounded-lg text-xs font-bold">Delete</button>
           </div>
         </td>
       `;
